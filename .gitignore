@@ -1,0 +1,65 @@
+# Игнорировать файлы сборки CMake
+/out/
+/spider/build/
+/http_server/build/
+/bin/
+/lib/
+
+# Игнорировать inih-r58 non-library files
+/inih-r58/test/
+
+# Игнорировать кэш CMake
+/.cmake/
+/CMakeCache.txt
+/CMakeFiles/
+/CMakeScripts/
+/cmake_install.cmake
+/Makefile
+
+# Игнорировать файлы и папки, созданные Visual Studio
+/.vs/
+/.vscode/
+/*.sln
+/*.vcxproj
+/*.vcxproj.filters
+/*.vcxproj.user
+/*.suo
+/*.opensdf
+/*.sdf
+/*.ipch
+/*.db
+/*.tlog/
+/*.log
+/*.idb
+/*.pdb
+/*.ilk
+/*.obj
+/*.iobj
+/*.ipdb
+/*.pch
+
+# Игнорировать временные файлы
+/*~
+/*.tmp
+
+# Игнорировать пользовательские настройки
+/*.user
+
+# Игнорировать резервные копии
+/*.bak
+
+# Игнорировать системные файлы
+/.DS_Store
+/Thumbs.db
+
+# Игнорировать локальные настройки
+/.local
+/.idea
+
+# Игнорировать другие специфичные файлы
+/*.exe
+/*.dll
+/*.so
+/*.a
+/*.lib
+/*.exp
