@@ -99,7 +99,25 @@ void parseLink(const Link& link, int depth, pqxx::connection& dbConn)
 
 		std::this_thread::sleep_for(std::chrono::milliseconds(500));
 
-		std::string html = getHtmlContent(link);
+		// Формируем базовый URL для относительных ссылок
+		std::string baseUrl = (link.protocol == ProtocolType::HTTPS ? "https://" : "http://") + link.hostName;
+		std::string fullUrl = link.query;
+
+		// Проверяем и формируем полный URL
+		if (fullUrl.find("http://") != 0 && fullUrl.find("https://") != 0) {
+			if (fullUrl.empty() || fullUrl[0] == '/') {
+				fullUrl = baseUrl + fullUrl; // Добавляем базовый URL для относительных ссылок
+			}
+			else {
+				// Если это не абсолютный URL и не начинается с '/', считаем его некорректным
+				std::cerr << "Invalid URL format: " << fullUrl << std::endl;
+				return;
+			}
+		}
+
+		// Получаем HTML-контент
+		//std::string html = getHtmlContent(link);
+		std::string html = getHtmlContent({ link.protocol, link.hostName, fullUrl });
 
 		if (html.empty()) {
 			std::cout << "Failed to get HTML Content or content is empty" << std::endl;
@@ -108,8 +126,8 @@ void parseLink(const Link& link, int depth, pqxx::connection& dbConn)
 
 		// TODO: Parse HTML code here on your own
 		
-		std::string clean = cleanText(html);// Очистка текста
-
+		// Очистка текста
+		std::string clean = cleanText(html);
 		if (clean.empty()) {
 			std::cout << "Cleaned text is empty, skipping processing" << std::endl;
 			return;
@@ -119,7 +137,7 @@ void parseLink(const Link& link, int depth, pqxx::connection& dbConn)
 		std::map<std::string, int> frequency = calculateWordFrequency(clean);
 
 		// Сохранение в базу данных
-		saveDocumentAndFrequency(link.hostName + link.query, clean, frequency, dbConn);
+		saveDocumentAndFrequency(fullUrl, clean, frequency, dbConn);
 
 		// TODO: Collect more links from HTML code and add them to the parser like that:
 
@@ -136,7 +154,7 @@ void parseLink(const Link& link, int depth, pqxx::connection& dbConn)
 
 		while (std::regex_search(searchStart, html.cend(), matches, link_regex)) {
 			std::string url = matches[1].str();
-
+			/*
 			if (!url.empty() && url[0] != '#') {
 				if (url.find("http") != 0) {
 					url = link.hostName + url;
@@ -144,15 +162,45 @@ void parseLink(const Link& link, int depth, pqxx::connection& dbConn)
 
 				links.push_back({ link.protocol, link.hostName, url });
 			}
+			*/
+			if (!url.empty() && url[0] != '#') {
+				std::string resolvedUrl = url;
+				// Если ссылка относительная
+				if (resolvedUrl.find("http://") != 0 && resolvedUrl.find("https://") != 0) {
+					if (resolvedUrl[0] == '/') {
+						resolvedUrl = baseUrl + resolvedUrl; // Абсолютный путь от корня сайта
+					}
+					else {
+						// Относительный путь от текущей страницы (добавляем к базовому пути)
+						std::string currentPath = fullUrl.substr(0, fullUrl.find_last_of('/'));
+						resolvedUrl = currentPath + "/" + resolvedUrl;
+					}
+				}
+
+				// Определяем протокол и хост для новой ссылки
+				ProtocolType newProtocol = resolvedUrl.find("https://") == 0 ? ProtocolType::HTTPS : ProtocolType::HTTP;
+				std::string newHost = link.hostName; // По умолчанию используем текущий хост
+				std::string newQuery = resolvedUrl;
+
+				if (resolvedUrl.find("http") == 0) {
+					// Извлекаем хост и запрос из полного URL
+					size_t hostStart = resolvedUrl.find("//") + 2;
+					size_t hostEnd = resolvedUrl.find('/', hostStart);
+					if (hostEnd == std::string::npos) { 
+						hostEnd = resolvedUrl.length(); 
+					}
+					newHost = resolvedUrl.substr(hostStart, hostEnd - hostStart);
+					newQuery = resolvedUrl.substr(hostEnd);
+				}
+
+				links.push_back({ newProtocol, newHost, newQuery });
+			}
 
 			searchStart = matches.suffix().first;
 		}
 
 		if (depth > 0) {
 			std::lock_guard<std::mutex> lock(mtx);
-
-			size_t count = links.size();
-			size_t index = 0;
 			for (auto& subLink : links)
 			{
 				tasks.push([subLink, depth, &dbConn]() { parseLink(subLink, depth - 1, dbConn); });

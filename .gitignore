@@ -5,9 +5,6 @@
 /bin/
 /lib/
 
-# Игнорировать inih-r58 non-library files
-/inih-r58/test/
-
 # Игнорировать кэш CMake
 /.cmake/
 /CMakeCache.txt

@@ -103,20 +103,51 @@ void HttpConnection::processRequest()
 std::string HttpConnection::generateStartPage() const {
 	std::ostringstream oss;
 	oss << "<html>\n"
-		<< "<head><meta charset=\"UTF-8\"><title>Search Engine</title></head>\n"
+		<< "<head>\n"
+		<< "    <meta charset=\"UTF-8\">\n"
+		<< "    <title>Search Engine</title>\n"
+		<< "    <style>\n"
+		<< "        body {\n"
+		<< "            display: flex;\n"
+		<< "            justify-content: center;\n"
+		<< "            align-items: center;\n"
+		<< "            height: 100vh;\n"
+		<< "            margin-top: -10vh;\n"
+		<< "            flex-direction: column;\n"
+		<< "        }\n"
+		<< "        h1 {\n"
+		<< "            margin-bottom: 20px;\n"
+		<< "        }\n"
+		<< "        form {\n"
+		<< "            text-align: center;\n"
+		<< "        }\n"
+		<< "        input[type=\"text\"] {\n"
+		<< "            padding: 10px;\n"
+		<< "            font-size: 16px;\n"
+		<< "            width: 300px;\n"
+		<< "            height: 30px;\n"
+		<< "            margin-bottom: 10px;\n"
+		<< "            box-sizing: border-box;\n"
+		<< "        }\n"
+		<< "        input[type=\"submit\"] {\n"
+		<< "            font-size: 16px;\n"
+		<< "            height: 30px;\n"
+		<< "            cursor: pointer;\n"
+		<< "            box-sizing: border-box;\n"
+		<< "        }\n"
+		<< "    </style>\n"
+		<< "</head>\n"
 		<< "<body>\n"
-		<< "<h1>Search Engine</h1>\n"
-		<< "<p>Welcome!<p>\n"
-		<< "<form action=\"/\" method=\"post\">\n"
-		<< "    <label for=\"search\">Search:</label><br>\n"
-		<< "    <input type=\"text\" id=\"search\" name=\"search\"><br>\n"
-		<< "    <input type=\"submit\" value=\"Search\">\n"
-		<< "</form>\n"
+		<< "    <h1>Search Engine</h1>\n"
+		<< "    <p>Welcome!</p>\n"
+		<< "    <form action=\"/\" method=\"post\">\n"
+		<< "        <input type=\"text\" id=\"search\" name=\"search\"><br>\n"
+		<< "        <input type=\"submit\" value=\"Search\">\n"
+		<< "    </form>\n"
 		<< "</body>\n"
 		<< "</html>\n";
 	return oss.str();
 }
-
 
 void HttpConnection::createResponseGet()
 {
@@ -171,16 +202,22 @@ void HttpConnection::createResponsePost()
 			return;
 		}
 
-		// TODO: Fetch your own search results here
-
 		// Разделяем строку на слова
 		std::vector<std::string> words;
 		std::istringstream iss(utf8value);
 		std::string word;
+
 		while (iss >> word) {
-			if (word.length() >= 3 && word.length() <= 32) { // Слова от 3 до 32 символов
-				words.push_back(word);
+			// Проверяем длину слова
+			if (word.length() < 3 || word.length() > 32) { // Слова от 3 до 32 символов
+				response_.result(http::status::bad_request);
+				response_.set(http::field::content_type, "text/plain");
+				beast::ostream(response_.body())
+					<< "I can't process this word '" << word
+					<< "'. Please enter words longer than 2 characters and shorter than 33 characters.\r\n";
+				return;
 			}
+			words.push_back(word);
 		}
 
 		// Проверяем количество слов

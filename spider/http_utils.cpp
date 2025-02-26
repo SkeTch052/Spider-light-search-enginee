@@ -43,8 +43,21 @@ std::string getHtmlContent(const Link& link)
 
 	try
 	{
-		std::string host = link.hostName;
-		std::string query = link.query;
+		//std::string host = link.hostName;
+		//std::string query = link.query;
+		
+		// Формируем полный URL
+		std::string fullUrl = link.query;
+		if (fullUrl.find("http://") != 0 && fullUrl.find("https://") != 0) {
+			fullUrl = (link.protocol == ProtocolType::HTTPS ? "https://" : "http://") + link.hostName + fullUrl;
+		}
+
+		// Извлекаем хост и путь из полного URL
+		size_t hostStart = fullUrl.find("//") + 2;
+		size_t hostEnd = fullUrl.find('/', hostStart);
+		if (hostEnd == std::string::npos) hostEnd = fullUrl.length();
+		std::string host = fullUrl.substr(hostStart, hostEnd - hostStart);
+		std::string query = fullUrl.substr(hostEnd).empty() ? "/" : fullUrl.substr(hostEnd);
 
 		net::io_context ioc;
 
@@ -84,12 +97,16 @@ std::string getHtmlContent(const Link& link)
 			http::response<http::dynamic_body> res;
 			http::read(stream, buffer, res);
 
-			if (isText(res.body().data()))
-			{
+			// Проверяем статус ответа
+			if (res.result() != http::status::ok) {
+				std::cout << "Error: HTTP status " << res.result_int() << " for URL " << host << query << std::endl;
+				return "";
+			}
+
+			if (isText(res.body().data())) {
 				result = buffers_to_string(res.body().data());
 			}
-			else
-			{
+			else {
 				std::cout << "This is not a text link, bailing out..." << std::endl;
 			}
 
@@ -98,7 +115,6 @@ std::string getHtmlContent(const Link& link)
 			if (ec == net::error::eof) {
 				ec = {};
 			}
-
 			if (ec) {
 				throw beast::system_error{ec};
 			}
@@ -116,15 +132,17 @@ std::string getHtmlContent(const Link& link)
 			req.set(http::field::host, host);
 			req.set(http::field::user_agent, BOOST_BEAST_VERSION_STRING);
 
-
 			http::write(stream, req);
 
 			beast::flat_buffer buffer;
-
 			http::response<http::dynamic_body> res;
-
-
 			http::read(stream, buffer, res);
+
+			// Проверяем статус ответа
+			if (res.result() != http::status::ok) {
+				std::cout << "Error: HTTP status " << res.result_int() << " for URL " << host << query << std::endl;
+				return "";
+			}
 
 			if (isText(res.body().data()))
 			{

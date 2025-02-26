@@ -19,11 +19,18 @@ std::string cleanText(const std::string& html) {
             return "";
         }
 
-        std::string clean = std::regex_replace(html, std::regex("<.*?>"), "");
+        // Удаляем HTML-теги, но сохраняем пробелы
+        std::string clean = std::regex_replace(html, std::regex("<.*?>"), " ");
 
-        clean = std::regex_replace(clean, std::regex(R"([^\w\s])"), "");
+        // Удаляем пунктуацию, но сохраняем пробелы
+        clean = std::regex_replace(clean, std::regex(R"([^\w\s])"), " ");
 
+        // Переводим в нижний регистр
         clean = boost::locale::to_lower(clean);
+
+        // Удаляем лишние пробелы
+        clean = std::regex_replace(clean, std::regex(R"(\s+)"), " ");
+        clean = std::regex_replace(clean, std::regex(R"(^\s+|\s+$)"), "");
 
         return clean;
     }
