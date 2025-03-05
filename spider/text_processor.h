@@ -1,4 +1,4 @@
-#pragma once
+п»ї#pragma once
 #include <regex>
 #include <boost/locale.hpp>
 #include <map>
@@ -7,8 +7,8 @@
 #include <stdexcept>
 #include <iostream>
 
-// Функция удаляет HTML-теги, пунктуацию и переводит текст в нижний регистр
-std::string cleanText(const std::string& html) {
+// Р¤СѓРЅРєС†РёСЏ СѓРґР°Р»СЏРµС‚ HTML-С‚РµРіРё, РїСѓРЅРєС‚СѓР°С†РёСЋ Рё РїРµСЂРµРІРѕРґРёС‚ С‚РµРєСЃС‚ РІ РЅРёР¶РЅРёР№ СЂРµРіРёСЃС‚СЂ
+inline std::string cleanText(const std::string& html) {
     try {
         boost::locale::generator gen;
         std::locale loc = gen("");
@@ -19,16 +19,16 @@ std::string cleanText(const std::string& html) {
             return "";
         }
 
-        // Удаляем HTML-теги, но сохраняем пробелы
+        // РЈРґР°Р»СЏРµРј HTML-С‚РµРіРё, РЅРѕ СЃРѕС…СЂР°РЅСЏРµРј РїСЂРѕР±РµР»С‹
         std::string clean = std::regex_replace(html, std::regex("<.*?>"), " ");
 
-        // Удаляем пунктуацию, но сохраняем пробелы
+        // РЈРґР°Р»СЏРµРј РїСѓРЅРєС‚СѓР°С†РёСЋ, РЅРѕ СЃРѕС…СЂР°РЅСЏРµРј РїСЂРѕР±РµР»С‹
         clean = std::regex_replace(clean, std::regex(R"([^\w\s])"), " ");
 
-        // Переводим в нижний регистр
+        // РџРµСЂРµРІРѕРґРёРј РІ РЅРёР¶РЅРёР№ СЂРµРіРёСЃС‚СЂ
         clean = boost::locale::to_lower(clean);
 
-        // Удаляем лишние пробелы
+        // РЈРґР°Р»СЏРµРј Р»РёС€РЅРёРµ РїСЂРѕР±РµР»С‹
         clean = std::regex_replace(clean, std::regex(R"(\s+)"), " ");
         clean = std::regex_replace(clean, std::regex(R"(^\s+|\s+$)"), "");
 
@@ -40,7 +40,7 @@ std::string cleanText(const std::string& html) {
     }
 }
 
-// Функция для подсчета частоты слов
+// Р¤СѓРЅРєС†РёСЏ РґР»СЏ РїРѕРґСЃС‡РµС‚Р° С‡Р°СЃС‚РѕС‚С‹ СЃР»РѕРІ
 std::map<std::string, int> calculateWordFrequency(const std::string& text) {
     std::map<std::string, int> frequency;
     std::istringstream stream(text);

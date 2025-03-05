@@ -1,10 +1,10 @@
-#include "search_documents.h"
+п»ї#include "search_documents.h"
 
 std::vector<std::pair<std::string, int>> searchDocuments(const std::vector<std::string>& words, pqxx::connection& c) {
     std::vector<std::pair<std::string, int>> results;
     pqxx::work txn(c);
 
-    // Сначала получаем word_id для каждого слова
+    // РЎРЅР°С‡Р°Р»Р° РїРѕР»СѓС‡Р°РµРј word_id РґР»СЏ РєР°Р¶РґРѕРіРѕ СЃР»РѕРІР°
     std::vector<int> word_ids;
     for (const auto& word : words) {
 
@@ -12,14 +12,14 @@ std::vector<std::pair<std::string, int>> searchDocuments(const std::vector<std::
         pqxx::result res = txn.exec(query);
 
         if (res.empty()) {
-            // Если хотя бы одно слово не найдено, возвращаем пустой результат
+            // Р•СЃР»Рё С…РѕС‚СЏ Р±С‹ РѕРґРЅРѕ СЃР»РѕРІРѕ РЅРµ РЅР°Р№РґРµРЅРѕ, РІРѕР·РІСЂР°С‰Р°РµРј РїСѓСЃС‚РѕР№ СЂРµР·СѓР»СЊС‚Р°С‚
             std::cout << "Word not found: " << word << std::endl;
             return results;
         }
         word_ids.push_back(res[0][0].as<int>());
     }
 
-    // Формируем SQL-запрос для поиска документов, содержащих все слова
+    // Р¤РѕСЂРјРёСЂСѓРµРј SQL-Р·Р°РїСЂРѕСЃ РґР»СЏ РїРѕРёСЃРєР° РґРѕРєСѓРјРµРЅС‚РѕРІ, СЃРѕРґРµСЂР¶Р°С‰РёС… РІСЃРµ СЃР»РѕРІР°
     std::string query = R"(
         SELECT d.id, d.url, SUM(f.frequency) as total_frequency
         FROM documents d

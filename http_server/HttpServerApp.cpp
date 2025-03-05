@@ -1,14 +1,11 @@
-#include <chrono>
+﻿#include <chrono>
 #include <cstdlib>
 #include <ctime>
 #include <iostream>
-#include <string>
-
-#include <string>
-#include <iostream>
-
-#include "http_connection.h"
+#include <boost/asio.hpp>
 #include <Windows.h>
+#include "http_connection.h"
+#include "../ezParser.h"
 
 
 void httpServer(tcp::acceptor& acceptor, tcp::socket& socket)
@@ -23,6 +20,7 @@ void httpServer(tcp::acceptor& acceptor, tcp::socket& socket)
 }
 
 
+
 int main(int argc, char* argv[])
 {
 	SetConsoleCP(CP_UTF8);
@@ -30,8 +28,17 @@ int main(int argc, char* argv[])
 
 	try
 	{
+		Config config;
+		try {
+			config = load_config("../../config.ini");
+		}
+		catch (const std::exception& e) {
+			std::cerr << "Failed to load config: " << e.what() << std::endl;
+			return EXIT_FAILURE;
+		}
+
 		auto const address = net::ip::make_address("0.0.0.0");
-		unsigned short port = 8081;
+		unsigned short port = static_cast<unsigned short>(config.search_port);
 
 		net::io_context ioc{1};
 
@@ -39,7 +46,7 @@ int main(int argc, char* argv[])
 		tcp::socket socket{ioc};
 		httpServer(acceptor, socket);
 
-		std::cout << "Open browser and connect to http://localhost:8081 to see the web server operating" << std::endl;
+		std::cout << "Open browser and connect to " << config.start_page << " to see the web server operating" << std::endl;
 
 		ioc.run();
 	}

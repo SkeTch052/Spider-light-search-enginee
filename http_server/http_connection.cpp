@@ -1,4 +1,4 @@
-#include "http_connection.h"
+п»ї#include "http_connection.h"
 #include "search_documents.h"
 #include "../ezParser.h"
 
@@ -26,7 +26,7 @@ std::string url_decode(const std::string& encoded) {
 			iss >> std::hex >> hex;
 			res += static_cast<char>(hex);
 		}
-		else if (ch == '+') { // Заменяем '+' на пробел
+		else if (ch == '+') { // Р—Р°РјРµРЅСЏРµРј '+' РЅР° РїСЂРѕР±РµР»
 			res += ' ';
 		}
 		else {
@@ -194,7 +194,7 @@ void HttpConnection::createResponsePost()
 			return;
 		}
 
-		// Проверка на пустую строку или строку из пробелов
+		// РџСЂРѕРІРµСЂРєР° РЅР° РїСѓСЃС‚СѓСЋ СЃС‚СЂРѕРєСѓ РёР»Рё СЃС‚СЂРѕРєСѓ РёР· РїСЂРѕР±РµР»РѕРІ
 		if (utf8value.empty() || utf8value.find_first_not_of(' ') == std::string::npos)
 		{
 			response_.set(http::field::content_type, "text/html");
@@ -202,14 +202,14 @@ void HttpConnection::createResponsePost()
 			return;
 		}
 
-		// Разделяем строку на слова
+		// Р Р°Р·РґРµР»СЏРµРј СЃС‚СЂРѕРєСѓ РЅР° СЃР»РѕРІР°
 		std::vector<std::string> words;
 		std::istringstream iss(utf8value);
 		std::string word;
 
 		while (iss >> word) {
-			// Проверяем длину слова
-			if (word.length() < 3 || word.length() > 32) { // Слова от 3 до 32 символов
+			// РџСЂРѕРІРµСЂСЏРµРј РґР»РёРЅСѓ СЃР»РѕРІР°
+			if (word.length() < 3 || word.length() > 32) { // РЎР»РѕРІР° РѕС‚ 3 РґРѕ 32 СЃРёРјРІРѕР»РѕРІ
 				response_.result(http::status::bad_request);
 				response_.set(http::field::content_type, "text/plain");
 				beast::ostream(response_.body())
@@ -220,7 +220,7 @@ void HttpConnection::createResponsePost()
 			words.push_back(word);
 		}
 
-		// Проверяем количество слов
+		// РџСЂРѕРІРµСЂСЏРµРј РєРѕР»РёС‡РµСЃС‚РІРѕ СЃР»РѕРІ
 		if (words.size() > 4) {
 			response_.result(http::status::bad_request);
 			response_.set(http::field::content_type, "text/plain");
@@ -228,7 +228,6 @@ void HttpConnection::createResponsePost()
 			return;
 		}
 
-		//Создание подключения к базе данных
 		Config config;
 		try {
 			config = load_config("../../config.ini");
@@ -237,15 +236,16 @@ void HttpConnection::createResponsePost()
 			std::cerr << "Failed to load config: " << e.what() << std::endl;
 		}
 
+		//РЎРѕР·РґР°РЅРёРµ РїРѕРґРєР»СЋС‡РµРЅРёСЏ Рє Р±Р°Р·Рµ РґР°РЅРЅС‹С…
 		pqxx::connection c("host=" + config.db_host + " port=" + std::to_string(config.db_port) + " dbname=" + config.db_name + " user=" + config.db_user + " password=" + config.db_password);
 		if (!c.is_open()) {
 			std::cerr << "Failed to connect to database" << std::endl;
 		}
 
-		// Выполняем поиск
+		// Р’С‹РїРѕР»РЅСЏРµРј РїРѕРёСЃРє
 		std::vector<std::pair<std::string, int>> searchResult = searchDocuments(words, c);
 
-		// Формирование HTML ответа
+		// Р¤РѕСЂРјРёСЂРѕРІР°РЅРёРµ HTML РѕС‚РІРµС‚Р°
 		response_.set(http::field::content_type, "text/html");
 		beast::ostream(response_.body())
 			<< "<html>\n"

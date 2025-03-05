@@ -1,4 +1,4 @@
-#include "http_utils.h"
+п»ї#include "http_utils.h"
 
 #include <regex>
 #include <iostream>
@@ -11,6 +11,8 @@
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/asio/ssl.hpp>
 #include <openssl/ssl.h>
+
+#include "parse_urls.h"
 
 namespace beast = boost::beast;
 namespace http = beast::http;
@@ -43,21 +45,12 @@ std::string getHtmlContent(const Link& link)
 
 	try
 	{
-		//std::string host = link.hostName;
-		//std::string query = link.query;
-		
-		// Формируем полный URL
-		std::string fullUrl = link.query;
-		if (fullUrl.find("http://") != 0 && fullUrl.find("https://") != 0) {
-			fullUrl = (link.protocol == ProtocolType::HTTPS ? "https://" : "http://") + link.hostName + fullUrl;
-		}
-
-		// Извлекаем хост и путь из полного URL
-		size_t hostStart = fullUrl.find("//") + 2;
-		size_t hostEnd = fullUrl.find('/', hostStart);
-		if (hostEnd == std::string::npos) hostEnd = fullUrl.length();
-		std::string host = fullUrl.substr(hostStart, hostEnd - hostStart);
-		std::string query = fullUrl.substr(hostEnd).empty() ? "/" : fullUrl.substr(hostEnd);
+		// Р¤РѕСЂРјРёСЂСѓРµРј Р±Р°Р·РѕРІС‹Р№ URL РёР· СЃС‚СЂСѓРєС‚СѓСЂС‹ Link
+		std::string baseUrl = (link.protocol == ProtocolType::HTTPS ? "https://" : "http://") + link.hostName;
+		// РџР°СЂСЃРёРј РїРѕР»РЅС‹Р№ URL СЃ СѓС‡РµС‚РѕРј Р±Р°Р·РѕРІРѕРіРѕ
+		UrlComponents components = parseUrl(link.query, baseUrl);
+		std::string host = components.host;
+		std::string query = components.query;
 
 		net::io_context ioc;
 
@@ -81,7 +74,6 @@ std::string getHtmlContent(const Link& link)
 			}
 
 			ip::tcp::resolver resolver(ioc);
-			//get_lowest_layer(stream).connect(resolver.resolve({ host, "https" }));
 			get_lowest_layer(stream).connect(resolver.resolve( host, "https" ));
 			get_lowest_layer(stream).expires_after(std::chrono::seconds(30));
 
@@ -97,7 +89,7 @@ std::string getHtmlContent(const Link& link)
 			http::response<http::dynamic_body> res;
 			http::read(stream, buffer, res);
 
-			// Проверяем статус ответа
+			// РџСЂРѕРІРµСЂСЏРµРј СЃС‚Р°С‚СѓСЃ РѕС‚РІРµС‚Р°
 			if (res.result() != http::status::ok) {
 				std::cout << "Error: HTTP status " << res.result_int() << " for URL " << host << query << std::endl;
 				return "";
@@ -138,7 +130,7 @@ std::string getHtmlContent(const Link& link)
 			http::response<http::dynamic_body> res;
 			http::read(stream, buffer, res);
 
-			// Проверяем статус ответа
+			// РџСЂРѕРІРµСЂСЏРµРј СЃС‚Р°С‚СѓСЃ РѕС‚РІРµС‚Р°
 			if (res.result() != http::status::ok) {
 				std::cout << "Error: HTTP status " << res.result_int() << " for URL " << host << query << std::endl;
 				return "";
@@ -168,4 +160,3 @@ std::string getHtmlContent(const Link& link)
 
 	return result;
 }
-

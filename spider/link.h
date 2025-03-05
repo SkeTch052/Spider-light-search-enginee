@@ -1,4 +1,4 @@
-#pragma once 
+﻿#pragma once 
 #include <string>
 #include <unordered_set>
 
@@ -21,4 +21,3 @@ struct Link
 			&& query == l.query;
 	}
 };
-

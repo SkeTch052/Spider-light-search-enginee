@@ -1,4 +1,4 @@
-#include "table_manager.h"
+﻿#include "table_manager.h"
 #include <iostream>
 
 void create_tables(pqxx::connection& c) {
