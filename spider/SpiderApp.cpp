@@ -15,7 +15,7 @@
 
 #include "http_utils.h"
 #include "text_processor.h"
-#include "../ezParser.h"
+#include "../ini_parser.h"
 #include "table_manager.h"
 #include "db_buffer.h"
 #include "extract_urls.h"
@@ -27,9 +27,11 @@ std::mutex mtx;
 std::condition_variable cv;
 std::queue<std::function<void()>> tasks;
 bool exitThreadPool = false;
+bool tasksCompleted = false;
 
 std::unordered_set<std::string> visitedUrls;
 std::mutex visitedUrlsMutex;
+const size_t MAX_URLS = 1500;
 
 
 // Функция сохранения документов и частот с помощью буфера
@@ -54,6 +56,11 @@ void threadPoolWorker(pqxx::connection dbConn) {
             lock.unlock();
             task();
             lock.lock();
+            
+            if (tasks.empty() || visitedUrls.size() >= MAX_URLS) {
+                tasksCompleted = true;
+                cv.notify_all();
+            }
         }
     }
     // Записываем остатки буфера перед завершением потока
@@ -99,7 +106,7 @@ void parseLink(const Link& link, int depth, pqxx::connection& dbConn) {
 
     {
         std::lock_guard<std::mutex> lock(visitedUrlsMutex);
-        if (visitedUrls.count(fullUrl) > 0) {
+        if (visitedUrls.count(fullUrl) > 0 || visitedUrls.size() >= MAX_URLS) {
             return;
         }
         visitedUrls.insert(fullUrl);
@@ -114,10 +121,7 @@ void parseLink(const Link& link, int depth, pqxx::connection& dbConn) {
 
         // Извлекаем ссылки только если depth > 0
         if (depth > 0) {
-                        auto parseStart = std::chrono::high_resolution_clock::now();
             std::vector<std::string> urlStrings = extractUrls(html);
-                        auto parseEnd = std::chrono::high_resolution_clock::now();
-                        double parseDuration = std::chrono::duration_cast<std::chrono::microseconds>(parseEnd - parseStart).count() / 1000.0;
 
             std::vector<Link> links;
             for (const auto& url : urlStrings) {
@@ -135,9 +139,6 @@ void parseLink(const Link& link, int depth, pqxx::connection& dbConn) {
                 tasks.push([subLink, depth, &dbConn]() { parseLink(subLink, depth - 1, dbConn); });
             }
             cv.notify_all();
-
-                        std::cout << "Processed URL: " << fullUrl << std::endl;
-                        std::cout << "    Parsing time: " << parseDuration << " ms" << std::endl;
         }
 
         std::string clean = cleanText(html);
@@ -151,8 +152,8 @@ void parseLink(const Link& link, int depth, pqxx::connection& dbConn) {
                     auto dbStart = std::chrono::high_resolution_clock::now();
         saveDocumentAndFrequency(fullUrl, clean, frequency, dbConn);
                     auto dbEnd = std::chrono::high_resolution_clock::now();
-                    double dbDuration = std::chrono::duration_cast<std::chrono::microseconds>(dbEnd - dbStart).count() / 1000.0;
-                    std::cout << "Processed URL (max depth): " << fullUrl << std::endl << "    DB write time: " << dbDuration << " ms" << std::endl;
+                    double dbTime = std::chrono::duration_cast<std::chrono::microseconds>(dbEnd - dbStart).count() / 1000.0;
+                    std::cout << "Processed URL: " << fullUrl << std::endl << "    dbSave duration: " << dbTime << " ms" << std::endl;                                           
     }
     catch (const std::exception& e) {
         std::cout << "Error in parseLink: " << e.what() << std::endl;
@@ -189,6 +190,14 @@ int main() {
     create_tables(mainDbConn);
     prepareStatements(mainDbConn);
 
+    // Парсинг стартовой ссылки
+    UrlComponents startComponents = parseUrl(config.start_url, "");
+    Link startLink{
+        (startComponents.protocol == "https" ? ProtocolType::HTTPS : ProtocolType::HTTP),
+        startComponents.host,
+        startComponents.query
+    };
+
     try {
         int numThreads = std::thread::hardware_concurrency();
         std::vector<std::thread> threadPool;
@@ -208,14 +217,19 @@ int main() {
             threadPool.emplace_back(threadPoolWorker, std::move(threadConnections[i]));
         }
 
-        Link link{ ProtocolType::HTTPS, "en.wikipedia.org", "/wiki/Main_Page" };
         {
             std::lock_guard<std::mutex> lock(mtx);
-            tasks.push([link, &mainDbConn, depth = config.depth]() { parseLink(link, depth, mainDbConn); });
+            tasks.push([startLink, &mainDbConn, depth = config.depth]() { parseLink(startLink, depth, mainDbConn); });
             cv.notify_one();
         }
 
-        std::this_thread::sleep_for(std::chrono::seconds(2));
+        // Ожидаем завершения задач или достижения лимита
+        {
+            std::unique_lock<std::mutex> lock(mtx);
+            cv.wait(lock, []() { return tasksCompleted || (tasks.empty() && visitedUrls.size() >= MAX_URLS); });
+            exitThreadPool = true;
+            cv.notify_all();
+        }
 
         {
             std::lock_guard<std::mutex> lock(mtx);
@@ -228,6 +242,7 @@ int main() {
         }
 
         flushBuffer(mainDbConn);
+        std::cout << "Total URLs processed: " << visitedUrls.size() << std::endl;
     }
     catch (const std::exception& e) {
         std::cout << "Main error: " << e.what() << std::endl;

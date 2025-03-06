@@ -11,10 +11,11 @@ struct Config {
     std::string db_user;
     std::string db_password;
 
-    std::string start_page;
     int depth;
+    std::string start_url;
 
     int search_port;
+    std::string start_page;
 
     Config() : db_port(0), depth(0), search_port(0) {}
 };

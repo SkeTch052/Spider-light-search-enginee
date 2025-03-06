@@ -5,17 +5,17 @@
 #include <boost/asio.hpp>
 #include <Windows.h>
 #include "http_connection.h"
-#include "../ezParser.h"
+#include "../ini_parser.h"
 
 
-void httpServer(tcp::acceptor& acceptor, tcp::socket& socket)
+void httpServer(tcp::acceptor& acceptor, tcp::socket& socket, const Config& config)
 {
 	acceptor.async_accept(socket,
 		[&](beast::error_code ec)
 		{
 			if (!ec)
-				std::make_shared<HttpConnection>(std::move(socket))->start();
-			httpServer(acceptor, socket);
+				std::make_shared<HttpConnection>(std::move(socket), config)->start();
+			httpServer(acceptor, socket, config);
 		});
 }
 
@@ -44,7 +44,7 @@ int main(int argc, char* argv[])
 
 		tcp::acceptor acceptor{ioc, { address, port }};
 		tcp::socket socket{ioc};
-		httpServer(acceptor, socket);
+		httpServer(acceptor, socket, config);
 
 		std::cout << "Open browser and connect to " << config.start_page << " to see the web server operating" << std::endl;
 

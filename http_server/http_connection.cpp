@@ -1,12 +1,15 @@
 ﻿#include "http_connection.h"
 #include "search_documents.h"
-#include "../ezParser.h"
+#include "../ini_parser.h"
+#include "html_generator.h"
 
 #include <sstream>
 #include <iomanip>
 #include <locale>
 #include <codecvt>
 #include <iostream>
+#include <algorithm>
+#include <cctype>
 #include <pqxx/pqxx>
 
 namespace beast = boost::beast;
@@ -26,7 +29,7 @@ std::string url_decode(const std::string& encoded) {
 			iss >> std::hex >> hex;
 			res += static_cast<char>(hex);
 		}
-		else if (ch == '+') { // Заменяем '+' на пробел
+		else if (ch == '+') {
 			res += ' ';
 		}
 		else {
@@ -42,8 +45,9 @@ std::string convert_to_utf8(const std::string& str) {
 	return url_decoded;
 }
 
-HttpConnection::HttpConnection(tcp::socket socket)
-	: socket_(std::move(socket)) {}
+HttpConnection::HttpConnection(tcp::socket socket, const Config& config)
+	: socket_(std::move(socket)), config_(config) {
+}
 
 void HttpConnection::start()
 {
@@ -101,52 +105,7 @@ void HttpConnection::processRequest()
 }
 
 std::string HttpConnection::generateStartPage() const {
-	std::ostringstream oss;
-	oss << "<html>\n"
-		<< "<head>\n"
-		<< "    <meta charset=\"UTF-8\">\n"
-		<< "    <title>Search Engine</title>\n"
-		<< "    <style>\n"
-		<< "        body {\n"
-		<< "            display: flex;\n"
-		<< "            justify-content: center;\n"
-		<< "            align-items: center;\n"
-		<< "            height: 100vh;\n"
-		<< "            margin-top: -10vh;\n"
-		<< "            flex-direction: column;\n"
-		<< "        }\n"
-		<< "        h1 {\n"
-		<< "            margin-bottom: 20px;\n"
-		<< "        }\n"
-		<< "        form {\n"
-		<< "            text-align: center;\n"
-		<< "        }\n"
-		<< "        input[type=\"text\"] {\n"
-		<< "            padding: 10px;\n"
-		<< "            font-size: 16px;\n"
-		<< "            width: 300px;\n"
-		<< "            height: 30px;\n"
-		<< "            margin-bottom: 10px;\n"
-		<< "            box-sizing: border-box;\n"
-		<< "        }\n"
-		<< "        input[type=\"submit\"] {\n"
-		<< "            font-size: 16px;\n"
-		<< "            height: 30px;\n"
-		<< "            cursor: pointer;\n"
-		<< "            box-sizing: border-box;\n"
-		<< "        }\n"
-		<< "    </style>\n"
-		<< "</head>\n"
-		<< "<body>\n"
-		<< "    <h1>Search Engine</h1>\n"
-		<< "    <p>Welcome!</p>\n"
-		<< "    <form action=\"/\" method=\"post\">\n"
-		<< "        <input type=\"text\" id=\"search\" name=\"search\"><br>\n"
-		<< "        <input type=\"submit\" value=\"Search\">\n"
-		<< "    </form>\n"
-		<< "</body>\n"
-		<< "</html>\n";
-	return oss.str();
+	return http_server::generateStartPage();
 }
 
 void HttpConnection::createResponseGet()
@@ -202,9 +161,28 @@ void HttpConnection::createResponsePost()
 			return;
 		}
 
-		// Разделяем строку на слова
+		// Приводим строку к нижнему регистру и удаляем всё, кроме букв, цифр и пробелов
+		std::string processed_value = utf8value;
+		std::transform(processed_value.begin(), processed_value.end(), processed_value.begin(),
+			[](unsigned char c) { return std::tolower(c); });
+
+		// Проверяем, содержит ли строка только латинские буквы, цифры и пробелы
+		for (char c : processed_value) {
+			if (!((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == ' ')) {
+				response_.result(http::status::bad_request);
+				response_.set(http::field::content_type, "text/plain");
+				beast::ostream(response_.body()) << "Invalid query. Please enter only latin, numbers and spaces.\r\n";
+				return;
+			}
+		}
+
+		std::string cleaned_value;
+		std::copy_if(processed_value.begin(), processed_value.end(), std::back_inserter(cleaned_value),
+			[](unsigned char c) { return std::isalnum(c) || std::isspace(c); });
+
+		// Разделяем очищенную строку на слова
 		std::vector<std::string> words;
-		std::istringstream iss(utf8value);
+		std::istringstream iss(cleaned_value);
 		std::string word;
 
 		while (iss >> word) {
@@ -228,47 +206,31 @@ void HttpConnection::createResponsePost()
 			return;
 		}
 
-		Config config;
-		try {
-			config = load_config("../../config.ini");
-		}
-		catch (const std::exception& e) {
-			std::cerr << "Failed to load config: " << e.what() << std::endl;
-		}
-
-		//Создание подключения к базе данных
-		pqxx::connection c("host=" + config.db_host + " port=" + std::to_string(config.db_port) + " dbname=" + config.db_name + " user=" + config.db_user + " password=" + config.db_password);
+		// Используем config_ из класса
+		pqxx::connection c("host=" + config_.db_host + 
+						   " port=" + std::to_string(config_.db_port) +
+						   " dbname=" + config_.db_name + 
+						   " user=" + config_.db_user +
+						   " password=" + config_.db_password);
 		if (!c.is_open()) {
 			std::cerr << "Failed to connect to database" << std::endl;
+			response_.result(http::status::internal_server_error);
+			response_.set(http::field::content_type, "text/plain");
+			beast::ostream(response_.body()) << "Database connection failed. Please try again later.\r\n";
+			return;
 		}
 
 		// Выполняем поиск
 		std::vector<std::pair<std::string, int>> searchResult = searchDocuments(words, c);
 
-		// Формирование HTML ответа
+		// Генерация HTML ответа
 		response_.set(http::field::content_type, "text/html");
-		beast::ostream(response_.body())
-			<< "<html>\n"
-			<< "<head><meta charset=\"UTF-8\"><title>Search Engine</title></head>\n"
-			<< "<body>\n"
-			<< "<h1>Search Engine</h1>\n"
-			<< "<p>Response:<p>\n"
-			<< "<ul>\n";
-
-		if (searchResult.empty()) {
-			beast::ostream(response_.body()) << "<li>No results for this query.</li>";
-		}
-		else {
-			for (const auto& result : searchResult) {
-				beast::ostream(response_.body())
-					<< "<li><a href=\"" << result.first << "\">" << result.first << "</a> (Relevance: " << result.second << ")</li>";
-			}
-		}
-
-		beast::ostream(response_.body())
-			<< "</ul>\n"
-			<< "</body>\n"
-			<< "</html>\n";
+		beast::ostream(response_.body()) << http_server::generateSearchResults(words, searchResult);
+	}
+	else if (request_.target() == "/back") // Обработка нажатия кнопки "Back to Search"
+	{
+		response_.set(http::field::content_type, "text/html");
+		beast::ostream(response_.body()) << http_server::generateStartPage();
 	}
 	else
 	{

@@ -1,15 +1,10 @@
 cmake_minimum_required(VERSION 3.20)
 
+cmake_policy(SET CMP0144 NEW)
+
 project(SpiderApp)
 
 set(PostgreSQL_ADDITIONAL_VERSIONS "17")
-
-set(MYHTML_INSTALL_DIR "F:/Projects-2/SPIDER/myhtml-4.0.5/build/install")
-set(MYHTML_INCLUDE_DIR "${MYHTML_INSTALL_DIR}/include")
-set(MYHTML_LIB_DIR "${MYHTML_INSTALL_DIR}/lib")
-
-add_library(myhtml STATIC IMPORTED)
-set_target_properties(myhtml PROPERTIES IMPORTED_LOCATION "${MYHTML_LIB_DIR}/myhtml_static.lib")
 
 add_executable(SpiderApp
 	SpiderApp.cpp
@@ -24,15 +19,29 @@ add_executable(SpiderApp
 	extract_urls.h
 	parse_urls.h
 	../config.ini
-	../inih-r58/ini.c
-	../inih-r58/ini.h
-	../inih-r58/cpp/INIReader.cpp
-	../inih-r58/cpp/INIReader.h
-	../ezParser.h
-	../ezParser.cpp
+	../ini_parser.h
+	../ini_parser.cpp
 	)
 
+target_compile_features(SpiderApp PRIVATE cxx_std_17) 
+
+set(MYHTML_INSTALL_DIR "F:/Projects-2/SPIDER/myhtml-4.0.5/build/install")
+set(MYHTML_INCLUDE_DIR "${MYHTML_INSTALL_DIR}/include")
+set(MYHTML_LIB_DIR "${MYHTML_INSTALL_DIR}/lib")
+
+add_library(myhtml STATIC IMPORTED)
+set_target_properties(myhtml PROPERTIES IMPORTED_LOCATION "${MYHTML_LIB_DIR}/myhtml_static.lib")
+
 add_subdirectory("../../libpqxx-7.10.0" libpqxx-build)
+
+add_library(inih STATIC
+    ../inih-r58/ini.c
+    ../inih-r58/ini.h
+    ../inih-r58/cpp/INIReader.cpp
+    ../inih-r58/cpp/INIReader.h
+)
+
+target_include_directories(inih PUBLIC "../inih-r58" "../inih-r58/cpp")
 
 set(BOOST_ROOT "../../boost-1.87.0")
 set(Boost_USE_STATIC_LIBS ON)
@@ -47,13 +56,12 @@ if(NOT Boost_FOUND)
     message(FATAL_ERROR "Boost not found!")
 endif()
 
-target_compile_features(SpiderApp PRIVATE cxx_std_17) 
-
 target_include_directories(SpiderApp PRIVATE 
 	${Boost_INCLUDE_DIRS}
 	${MYHTML_INCLUDE_DIR})
 
 target_link_libraries(SpiderApp PRIVATE 
+	inih
 	${Boost_LIBRARIES} 
 	OpenSSL::SSL 
 	pqxx

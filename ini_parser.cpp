@@ -1,4 +1,4 @@
-﻿#include "ezParser.h"
+﻿#include "ini_parser.h"
 
 Config load_config(const std::string& filename) {
     INIReader reader(filename);
@@ -15,9 +15,10 @@ Config load_config(const std::string& filename) {
     config.db_password = reader.Get("database", "password", "password");
 
     config.depth = reader.GetInteger("spider", "depth", 2);
+    config.start_url = reader.Get("spider", "start_url", "https://en.wikipedia.org/wiki/Main_Page");
 
-    config.start_page = reader.Get("search", "start_page", "http://localhost:8081");
     config.search_port = reader.GetInteger("search", "port", 8081);
+    config.start_page = reader.Get("search", "start_page", "http://localhost:8081");
 
     return config;
 }
