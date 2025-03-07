@@ -15,7 +15,6 @@ struct Config {
     std::string start_url;
 
     int search_port;
-    std::string start_page;
 
     Config() : db_port(0), depth(0), search_port(0) {}
 };

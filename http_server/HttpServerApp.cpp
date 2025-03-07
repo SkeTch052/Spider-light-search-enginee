@@ -46,7 +46,7 @@ int main(int argc, char* argv[])
 		tcp::socket socket{ioc};
 		httpServer(acceptor, socket, config);
 
-		std::cout << "Open browser and connect to " << config.start_page << " to see the web server operating" << std::endl;
+		std::cout << "Open browser and connect to http://localhost:" << port << " to see the web server operating" << std::endl;
 
 		ioc.run();
 	}

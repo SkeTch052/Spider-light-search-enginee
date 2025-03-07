@@ -136,4 +136,36 @@ namespace http_server {
         return oss.str();
     }
 
+    std::string generateErrorPage(const std::string& error_message) {
+        std::ostringstream oss;
+        oss << "<html>\n"
+            << "<head>\n"
+            << "    <meta charset=\"UTF-8\">\n"
+            << "    <title>Server Error</title>\n"
+            << "    <style>\n"
+            << "        body {\n"
+            << "            display: flex;\n"
+            << "            justify-content: center;\n"
+            << "            align-items: center;\n"
+            << "            height: 100vh;\n"
+            << "            margin-top: -10vh;\n"
+            << "            flex-direction: column;\n"
+            << "        }\n"
+            << "        h1 {\n"
+            << "            margin-bottom: 20px;\n"
+            << "        }\n"
+            << "        p {\n"
+            << "            margin-bottom: 10px;\n"
+            << "        }\n"
+            << "    </style>\n"
+            << "</head>\n"
+            << "<body>\n"
+            << "    <h1>Internal Server Error</h1>\n"
+            << "    <p>" << error_message << "</p>\n"
+            << "    <p>Please try again later or contact support.</p>\n"
+            << "</body>\n"
+            << "</html>\n";
+        return oss.str();
+    }
+
 } // namespace http_server

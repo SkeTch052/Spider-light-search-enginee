@@ -5,7 +5,7 @@
 #include <cctype>
 #include <myhtml/api.h>
 
-// Рекурсивное извлечение текста из узлов
+// Рекурсивное извлечение текста
 inline void extractTextFromNode(myhtml_tree_node_t* node, std::stringstream& result) {
     while (node) {
         const char* text = (const char*)myhtml_node_text(node, nullptr);

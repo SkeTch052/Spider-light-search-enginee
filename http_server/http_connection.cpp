@@ -206,26 +206,31 @@ void HttpConnection::createResponsePost()
 			return;
 		}
 
-		// Используем config_ из класса
-		pqxx::connection c("host=" + config_.db_host + 
-						   " port=" + std::to_string(config_.db_port) +
-						   " dbname=" + config_.db_name + 
-						   " user=" + config_.db_user +
-						   " password=" + config_.db_password);
-		if (!c.is_open()) {
-			std::cerr << "Failed to connect to database" << std::endl;
-			response_.result(http::status::internal_server_error);
-			response_.set(http::field::content_type, "text/plain");
-			beast::ostream(response_.body()) << "Database connection failed. Please try again later.\r\n";
-			return;
+		try {
+			// Подключение к базе данных
+			pqxx::connection c("host=" + config_.db_host +
+				" port=" + std::to_string(config_.db_port) +
+				" dbname=" + config_.db_name +
+				" user=" + config_.db_user +
+				" password=" + config_.db_password);
+			if (!c.is_open()) {
+				throw std::runtime_error("Database connection failed");
+			}
+
+			// Выполняем поиск
+			std::vector<std::pair<std::string, int>> searchResult = searchDocuments(words, c);
+
+			// Генерация HTML ответа
+			response_.set(http::field::content_type, "text/html");
+			beast::ostream(response_.body()) << http_server::generateSearchResults(words, searchResult);
 		}
-
-		// Выполняем поиск
-		std::vector<std::pair<std::string, int>> searchResult = searchDocuments(words, c);
-
-		// Генерация HTML ответа
-		response_.set(http::field::content_type, "text/html");
-		beast::ostream(response_.body()) << http_server::generateSearchResults(words, searchResult);
+		catch (const std::exception& e) {
+			// Обработка внутренней ошибки
+			std::cerr << "Internal error: " << e.what() << std::endl;
+			response_.result(http::status::internal_server_error);
+			response_.set(http::field::content_type, "text/html");
+			beast::ostream(response_.body()) << http_server::generateErrorPage("An internal error occurred: " + std::string(e.what()));
+		}
 	}
 	else if (request_.target() == "/back") // Обработка нажатия кнопки "Back to Search"
 	{
