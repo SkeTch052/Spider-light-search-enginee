@@ -128,7 +128,7 @@ namespace http_server {
         }
 
         oss << "    </ul>\n"
-            << "    <form action=\"back\" method=\"post\">\n"
+            << "    <form action=\"/\" method=\"get\">\n"
             << "        <input type=\"submit\" value=\"Back to Search\">\n"
             << "    </form>\n"
             << "</body>\n"

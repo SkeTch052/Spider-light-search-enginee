@@ -1,8 +1,8 @@
 ﻿#include "http_utils.h"
+#include "parse_urls.h"
 
 #include <regex>
 #include <iostream>
-
 #include <boost/beast/core.hpp>
 #include <boost/beast/ssl.hpp>
 #include <boost/beast/http.hpp>
@@ -12,24 +12,18 @@
 #include <boost/asio/ssl.hpp>
 #include <openssl/ssl.h>
 
-#include "parse_urls.h"
-
 namespace beast = boost::beast;
 namespace http = beast::http;
 namespace net = boost::asio;
 namespace ip = boost::asio::ip;
 namespace ssl = boost::asio::ssl;
-
 using tcp = boost::asio::ip::tcp;
 
-bool isText(const boost::beast::multi_buffer::const_buffers_type& b)
-{
-	for (auto itr = b.begin(); itr != b.end(); itr++)
-	{
-		for (int i = 0; i < (*itr).size(); i++)
-		{
-			if (*((const char*)(*itr).data() + i) == 0)
-			{
+
+bool isText(const boost::beast::multi_buffer::const_buffers_type& b) {
+	for (auto itr = b.begin(); itr != b.end(); itr++) {
+		for (int i = 0; i < (*itr).size(); i++) {
+			if (*((const char*)(*itr).data() + i) == 0) {
 				return false;
 			}
 		}
@@ -38,25 +32,19 @@ bool isText(const boost::beast::multi_buffer::const_buffers_type& b)
 	return true;
 }
 
-std::string getHtmlContent(const Link& link)
-{
-
+std::string getHtmlContent(const Link& link) {
 	std::string result;
 
-	try
-	{
+	try {
 		// Формируем базовый URL из структуры Link
 		std::string baseUrl = (link.protocol == ProtocolType::HTTPS ? "https://" : "http://") + link.hostName;
 		// Парсим полный URL с учетом базового
 		UrlComponents components = parseUrl(link.query, baseUrl);
 		std::string host = components.host;
 		std::string query = components.query;
-
 		net::io_context ioc;
 
-		if (link.protocol == ProtocolType::HTTPS)
-		{
-
+		if (link.protocol == ProtocolType::HTTPS) {
 			ssl::context ctx(ssl::context::tlsv13_client);
 			ctx.set_default_verify_paths();
 
@@ -64,7 +52,7 @@ std::string getHtmlContent(const Link& link)
 			stream.set_verify_mode(ssl::verify_none);
 
 			stream.set_verify_callback([](bool preverified, ssl::verify_context& ctx) {
-				return true; // Accept any certificate
+				return true;
 				});
 
 
@@ -111,8 +99,7 @@ std::string getHtmlContent(const Link& link)
 				throw beast::system_error{ec};
 			}
 		}
-		else
-		{
+		else {
 			tcp::resolver resolver(ioc);
 			beast::tcp_stream stream(ioc);
 
@@ -136,12 +123,10 @@ std::string getHtmlContent(const Link& link)
 				return "";
 			}
 
-			if (isText(res.body().data()))
-			{
+			if (isText(res.body().data())) {
 				result = buffers_to_string(res.body().data());
 			}
-			else
-			{
+			else {
 				std::cout << "This is not a text link, bailing out..." << std::endl;
 			}
 
@@ -153,8 +138,7 @@ std::string getHtmlContent(const Link& link)
 
 		}
 	}
-	catch (const std::exception& e)
-	{
+	catch (const std::exception& e) {
 		std::cout << e.what() << std::endl;
 	}
 

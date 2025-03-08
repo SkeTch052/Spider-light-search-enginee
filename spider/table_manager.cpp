@@ -5,20 +5,20 @@ void create_tables(pqxx::connection& c) {
     try {
         pqxx::work tx(c);
         tx.exec("CREATE TABLE IF NOT EXISTS documents ("
-            "id SERIAL PRIMARY KEY,"
-            "url TEXT NOT NULL,"
-            "content TEXT,"
-            "date_created TIMESTAMP DEFAULT CURRENT_TIMESTAMP);");
+                "id SERIAL PRIMARY KEY,"
+                "url TEXT NOT NULL,"
+                "content TEXT,"
+                "date_created TIMESTAMP DEFAULT CURRENT_TIMESTAMP);");
 
         tx.exec("CREATE TABLE IF NOT EXISTS words ("
-            "id SERIAL PRIMARY KEY,"
-            "word TEXT NOT NULL UNIQUE);");
+                "id SERIAL PRIMARY KEY,"
+                "word TEXT NOT NULL UNIQUE);");
 
         tx.exec("CREATE TABLE IF NOT EXISTS frequency ("
-            "document_id INT REFERENCES documents(id),"
-            "word_id INT REFERENCES words(id),"
-            "frequency INT,"
-            "PRIMARY KEY (document_id, word_id));");
+                "document_id INT REFERENCES documents(id),"
+                "word_id INT REFERENCES words(id),"
+                "frequency INT,"
+                "PRIMARY KEY (document_id, word_id));");
 
         tx.commit();
         std::cout << "Tables created successfully!" << std::endl;

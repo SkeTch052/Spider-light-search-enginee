@@ -19,22 +19,26 @@ std::vector<std::pair<std::string, int>> searchDocuments(const std::vector<std::
         word_ids.push_back(res[0][0].as<int>());
     }
 
+    // Формируем строку со списком word_ids отдельно
+    std::ostringstream word_ids_stream;
+    for (size_t i = 0; i < word_ids.size(); ++i) {
+      word_ids_stream << word_ids[i];
+      if (i < word_ids.size() - 1) {
+        word_ids_stream << ", ";
+      }
+    }
+    std::string word_ids_str = word_ids_stream.str();
+
     // Формируем SQL-запрос для поиска документов, содержащих все слова
     std::string query = R"(
         SELECT d.id, d.url, SUM(f.frequency) as total_frequency
         FROM documents d
         JOIN frequency f ON d.id = f.document_id
-        WHERE f.word_id IN ()";
-
-    for (size_t i = 0; i < word_ids.size(); ++i) {
-        query += std::to_string(word_ids[i]);
-        if (i < word_ids.size() - 1) {
-            query += ", ";
-        }
-    }
-
-    query += R"()
+        WHERE f.word_id IN ()" +
+                        word_ids_str + R"()
         GROUP BY d.id, d.url
+        HAVING COUNT(DISTINCT f.word_id) = )" +
+                        std::to_string(word_ids.size()) + R"(
         ORDER BY total_frequency DESC
         LIMIT 10;)";
 

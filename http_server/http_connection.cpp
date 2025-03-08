@@ -49,15 +49,13 @@ HttpConnection::HttpConnection(tcp::socket socket, const Config& config)
 	: socket_(std::move(socket)), config_(config) {
 }
 
-void HttpConnection::start()
-{
+void HttpConnection::start() {
 	readRequest();
 	checkDeadline();
 }
 
 
-void HttpConnection::readRequest()
-{
+void HttpConnection::readRequest() {
 	auto self = shared_from_this();
 
 	http::async_read(
@@ -73,8 +71,7 @@ void HttpConnection::readRequest()
 		});
 }
 
-void HttpConnection::processRequest()
-{
+void HttpConnection::processRequest() {
 	response_.version(request_.version());
 	response_.keep_alive(false);
 
@@ -108,15 +105,12 @@ std::string HttpConnection::generateStartPage() const {
 	return http_server::generateStartPage();
 }
 
-void HttpConnection::createResponseGet()
-{
-	if (request_.target() == "/")
-	{
+void HttpConnection::createResponseGet() {
+    if (request_.target().starts_with("/")) {
 		response_.set(http::field::content_type, "text/html");
 		beast::ostream(response_.body()) << generateStartPage();
 	}
-	else
-	{
+	else {
 		response_.result(http::status::not_found);
 		response_.set(http::field::content_type, "text/plain");
 		beast::ostream(response_.body()) << "File not found\r\n";
@@ -125,15 +119,13 @@ void HttpConnection::createResponseGet()
 
 void HttpConnection::createResponsePost()
 {
-	if (request_.target() == "/")
-	{
+	if (request_.target() == "/") {
 		std::string s = buffers_to_string(request_.body().data());
 
 		std::cout << "POST data: " << s << std::endl;
 
 		size_t pos = s.find('=');
-		if (pos == std::string::npos)
-		{
+		if (pos == std::string::npos) {
 			response_.result(http::status::not_found);
 			response_.set(http::field::content_type, "text/plain");
 			beast::ostream(response_.body()) << "File not found\r\n";
@@ -142,11 +134,9 @@ void HttpConnection::createResponsePost()
 
 		std::string key = s.substr(0, pos);
 		std::string value = s.substr(pos + 1);
-
 		std::string utf8value = convert_to_utf8(value);
 
-		if (key != "search")
-		{
+		if (key != "search") {
 			response_.result(http::status::not_found);
 			response_.set(http::field::content_type, "text/plain");
 			beast::ostream(response_.body()) << "File not found\r\n";
@@ -154,8 +144,7 @@ void HttpConnection::createResponsePost()
 		}
 
 		// Проверка на пустую строку или строку из пробелов
-		if (utf8value.empty() || utf8value.find_first_not_of(' ') == std::string::npos)
-		{
+		if (utf8value.empty() || utf8value.find_first_not_of(' ') == std::string::npos) {
 			response_.set(http::field::content_type, "text/html");
 			beast::ostream(response_.body()) << generateStartPage();
 			return;
@@ -232,23 +221,15 @@ void HttpConnection::createResponsePost()
 			beast::ostream(response_.body()) << http_server::generateErrorPage("An internal error occurred: " + std::string(e.what()));
 		}
 	}
-	else if (request_.target() == "/back") // Обработка нажатия кнопки "Back to Search"
-	{
-		response_.set(http::field::content_type, "text/html");
-		beast::ostream(response_.body()) << http_server::generateStartPage();
-	}
-	else
-	{
+	else {
 		response_.result(http::status::not_found);
 		response_.set(http::field::content_type, "text/plain");
 		beast::ostream(response_.body()) << "File not found\r\n";
 	}
 }
 
-void HttpConnection::writeResponse()
-{
+void HttpConnection::writeResponse() {
 	auto self = shared_from_this();
-
 	response_.content_length(response_.body().size());
 
 	http::async_write(
@@ -261,8 +242,7 @@ void HttpConnection::writeResponse()
 		});
 }
 
-void HttpConnection::checkDeadline()
-{
+void HttpConnection::checkDeadline() {
 	auto self = shared_from_this();
 
 	deadline_.async_wait(

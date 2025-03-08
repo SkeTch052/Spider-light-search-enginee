@@ -1,15 +1,15 @@
-﻿#include <chrono>
+﻿#include "http_connection.h"
+#include "../ini_parser.h"
+
+#include <chrono>
 #include <cstdlib>
 #include <ctime>
 #include <iostream>
 #include <boost/asio.hpp>
 #include <Windows.h>
-#include "http_connection.h"
-#include "../ini_parser.h"
 
 
-void httpServer(tcp::acceptor& acceptor, tcp::socket& socket, const Config& config)
-{
+void httpServer(tcp::acceptor& acceptor, tcp::socket& socket, const Config& config) {
 	acceptor.async_accept(socket,
 		[&](beast::error_code ec)
 		{
@@ -26,8 +26,7 @@ int main(int argc, char* argv[])
 	SetConsoleCP(CP_UTF8);
 	SetConsoleOutputCP(CP_UTF8);
 
-	try
-	{
+	try {
 		Config config;
 		try {
 			config = load_config("../../config.ini");
@@ -41,7 +40,6 @@ int main(int argc, char* argv[])
 		unsigned short port = static_cast<unsigned short>(config.search_port);
 
 		net::io_context ioc{1};
-
 		tcp::acceptor acceptor{ioc, { address, port }};
 		tcp::socket socket{ioc};
 		httpServer(acceptor, socket, config);

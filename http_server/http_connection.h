@@ -1,13 +1,13 @@
 ﻿#pragma once
 
-#include <string>
+#include "../ini_parser.h"
 
+#include <string>
 #include <boost/beast/core.hpp>
 #include <boost/beast/http.hpp>
 #include <boost/beast/version.hpp>
 #include <boost/asio.hpp>
 
-#include "../ini_parser.h"
 
 namespace beast = boost::beast;
 namespace http = beast::http;
@@ -22,8 +22,10 @@ protected:
 	beast::flat_buffer buffer_{8192};
 	http::request<http::dynamic_body> request_;
 	http::response<http::dynamic_body> response_;
+
 	net::steady_timer deadline_{
 		socket_.get_executor(), std::chrono::seconds(60)};
+	
 	Config config_;
 
 	void readRequest();
