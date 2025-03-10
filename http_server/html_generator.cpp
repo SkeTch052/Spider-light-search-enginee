@@ -3,6 +3,7 @@
 
 namespace http_server {
 
+    // Генерация главной страницы с формой поиска
     std::string generateStartPage() {
         std::ostringstream oss;
         oss << "<html>\n"
@@ -53,6 +54,7 @@ namespace http_server {
         return oss.str();
     }
 
+    // Генерация страницы с результатами поиска
     std::string generateSearchResults(const std::vector<std::string>& query_words,
         const std::vector<std::pair<std::string, int>>& search_results) {
         std::ostringstream oss;
@@ -136,6 +138,7 @@ namespace http_server {
         return oss.str();
     }
 
+    // Генерация страницы ошибки
     std::string generateErrorPage(const std::string& error_message) {
         std::ostringstream oss;
         oss << "<html>\n"

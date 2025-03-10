@@ -1,5 +1,6 @@
 ﻿#include "search_documents.h"
 
+// Функция поиска документов по словам
 std::vector<std::pair<std::string, int>> searchDocuments(const std::vector<std::string>& words, pqxx::connection& c) {
     std::vector<std::pair<std::string, int>> results;
     pqxx::work txn(c);
@@ -19,7 +20,7 @@ std::vector<std::pair<std::string, int>> searchDocuments(const std::vector<std::
         word_ids.push_back(res[0][0].as<int>());
     }
 
-    // Формируем строку со списком word_ids отдельно
+    // Формируем строку со списком word_ids отдельно для вставки в запрос
     std::ostringstream word_ids_stream;
     for (size_t i = 0; i < word_ids.size(); ++i) {
       word_ids_stream << word_ids[i];
@@ -42,8 +43,8 @@ std::vector<std::pair<std::string, int>> searchDocuments(const std::vector<std::
         ORDER BY total_frequency DESC
         LIMIT 10;)";
 
+    // Выполняем запрос и собираем результаты
     pqxx::result res = txn.exec(query);
-
     for (const auto& row : res) {
         std::string url = row[1].as<std::string>();
         int total_frequency = row[2].as<int>();

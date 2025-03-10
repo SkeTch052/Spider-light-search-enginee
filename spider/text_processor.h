@@ -3,6 +3,7 @@
 #include <map>
 #include <sstream>
 #include <cctype>
+#include <iostream>
 #include <myhtml/api.h>
 
 // Рекурсивное извлечение текста

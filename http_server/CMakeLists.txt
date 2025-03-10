@@ -22,6 +22,9 @@ add_executable(HttpServerApp
     ../ini_parser.cpp
 )
 
+# Установка выходного пути для статических библиотек
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
+
 # Статическая библиотека inih
 add_library(inih STATIC
     ../inih-r58/ini.c
@@ -29,15 +32,14 @@ add_library(inih STATIC
     ../inih-r58/cpp/INIReader.cpp
     ../inih-r58/cpp/INIReader.h
 )
-
-# Инклуды для inih
 target_include_directories(inih PUBLIC 
     "${CMAKE_SOURCE_DIR}/../inih-r58"
     "${CMAKE_SOURCE_DIR}/../inih-r58/cpp"
 )
 
 # Подключение libpqxx
-add_subdirectory("C:/Program Files/pqxx/libpqxx-7.10.0" libpqxx-build)
+set(LIBPQXX_DIR "C:/Program Files/pqxx/libpqxx-7.10.0")
+add_subdirectory("${LIBPQXX_DIR}" libpqxx-build)
 
 # Настройка Boost
 set(BOOST_ROOT "C:/Program Files/Boost/boost-1.87.0")

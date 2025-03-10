@@ -9,6 +9,7 @@
 #include <Windows.h>
 
 
+// Функция запуска асинхронного HTTP-сервера
 void httpServer(tcp::acceptor& acceptor, tcp::socket& socket, const Config& config) {
 	acceptor.async_accept(socket,
 		[&](beast::error_code ec)
@@ -36,9 +37,11 @@ int main(int argc, char* argv[])
 			return EXIT_FAILURE;
 		}
 
+		// Задаём адрес и порт для сервера
 		auto const address = net::ip::make_address("0.0.0.0");
 		unsigned short port = static_cast<unsigned short>(config.search_port);
 
+		// Создаём объекты для работы с сетью
 		net::io_context ioc{1};
 		tcp::acceptor acceptor{ioc, { address, port }};
 		tcp::socket socket{ioc};

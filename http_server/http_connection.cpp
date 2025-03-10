@@ -54,7 +54,6 @@ void HttpConnection::start() {
 	checkDeadline();
 }
 
-
 void HttpConnection::readRequest() {
 	auto self = shared_from_this();
 
@@ -105,6 +104,7 @@ std::string HttpConnection::generateStartPage() const {
 	return http_server::generateStartPage();
 }
 
+// Обработка GET-запроса
 void HttpConnection::createResponseGet() {
     if (request_.target().starts_with("/")) {
 		response_.set(http::field::content_type, "text/html");
@@ -117,6 +117,7 @@ void HttpConnection::createResponseGet() {
 	}
 }
 
+// Обработка POST-запроса
 void HttpConnection::createResponsePost()
 {
 	if (request_.target() == "/") {
@@ -150,7 +151,7 @@ void HttpConnection::createResponsePost()
 			return;
 		}
 
-		// Приводим строку к нижнему регистру и удаляем всё, кроме букв, цифр и пробелов
+		// Приводим строку к нижнему регистру и удаляем всё лишнее
 		std::string processed_value = utf8value;
 		std::transform(processed_value.begin(), processed_value.end(), processed_value.begin(),
 			[](unsigned char c) { return std::tolower(c); });
@@ -176,7 +177,7 @@ void HttpConnection::createResponsePost()
 
 		while (iss >> word) {
 			// Проверяем длину слова
-			if (word.length() < 3 || word.length() > 32) { // Слова от 3 до 32 символов
+			if (word.length() < 3 || word.length() > 32) {
 				response_.result(http::status::bad_request);
 				response_.set(http::field::content_type, "text/plain");
 				beast::ostream(response_.body())
@@ -196,20 +197,17 @@ void HttpConnection::createResponsePost()
 		}
 
 		try {
-			// Подключение к базе данных
 			pqxx::connection c("host=" + config_.db_host +
-				" port=" + std::to_string(config_.db_port) +
-				" dbname=" + config_.db_name +
-				" user=" + config_.db_user +
-				" password=" + config_.db_password);
+							   " port=" + std::to_string(config_.db_port) +
+							   " dbname=" + config_.db_name +
+							   " user=" + config_.db_user +
+							   " password=" + config_.db_password);
 			if (!c.is_open()) {
 				throw std::runtime_error("Database connection failed");
 			}
 
-			// Выполняем поиск
+			// Выполняем поиск и возвращаем результаты
 			std::vector<std::pair<std::string, int>> searchResult = searchDocuments(words, c);
-
-			// Генерация HTML ответа
 			response_.set(http::field::content_type, "text/html");
 			beast::ostream(response_.body()) << http_server::generateSearchResults(words, searchResult);
 		}
@@ -242,6 +240,7 @@ void HttpConnection::writeResponse() {
 		});
 }
 
+// Тайм-аут для соединения
 void HttpConnection::checkDeadline() {
 	auto self = shared_from_this();
 

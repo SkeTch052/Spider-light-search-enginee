@@ -1,5 +1,6 @@
 # Игнорировать файлы сборки CMake
 /out/
+/build/
 /spider/build/
 /http_server/build/
 /bin/

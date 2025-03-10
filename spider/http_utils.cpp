@@ -20,6 +20,7 @@ namespace ssl = boost::asio::ssl;
 using tcp = boost::asio::ip::tcp;
 
 
+// Проверка, содержит ли буфер текстовые данные
 bool isText(const boost::beast::multi_buffer::const_buffers_type& b) {
 	for (auto itr = b.begin(); itr != b.end(); itr++) {
 		for (int i = 0; i < (*itr).size(); i++) {
@@ -32,27 +33,25 @@ bool isText(const boost::beast::multi_buffer::const_buffers_type& b) {
 	return true;
 }
 
+// Получение HTML-контента по ссылке
 std::string getHtmlContent(const Link& link) {
 	std::string result;
 
 	try {
-		// Формируем базовый URL из структуры Link
 		std::string baseUrl = (link.protocol == ProtocolType::HTTPS ? "https://" : "http://") + link.hostName;
-		// Парсим полный URL с учетом базового
 		UrlComponents components = parseUrl(link.query, baseUrl);
 		std::string host = components.host;
 		std::string query = components.query;
 		net::io_context ioc;
 
 		if (link.protocol == ProtocolType::HTTPS) {
-			ssl::context ctx(ssl::context::tlsv13_client);
+			ssl::context ctx(ssl::context::tlsv13_client); // Настраиваем SSL-контекст
 			ctx.set_default_verify_paths();
-
 			beast::ssl_stream<beast::tcp_stream> stream(ioc, ctx);
 			stream.set_verify_mode(ssl::verify_none);
 
 			stream.set_verify_callback([](bool preverified, ssl::verify_context& ctx) {
-				return true;
+				return true; // Отключаем проверку сертификатов
 				});
 
 
@@ -65,26 +64,24 @@ std::string getHtmlContent(const Link& link) {
 			get_lowest_layer(stream).connect(resolver.resolve( host, "https" ));
 			get_lowest_layer(stream).expires_after(std::chrono::seconds(30));
 
-
 			http::request<http::empty_body> req{http::verb::get, query, 11};
 			req.set(http::field::host, host);
 			req.set(http::field::user_agent, BOOST_BEAST_VERSION_STRING);
 
-			stream.handshake(ssl::stream_base::client);
+			stream.handshake(ssl::stream_base::client); // Устанавливаем SSL-соединение
 			http::write(stream, req);
 
 			beast::flat_buffer buffer;
 			http::response<http::dynamic_body> res;
 			http::read(stream, buffer, res);
 
-			// Проверяем статус ответа
 			if (res.result() != http::status::ok) {
 				std::cout << "Error: HTTP status " << res.result_int() << " for URL " << host << query << std::endl;
 				return "";
 			}
 
 			if (isText(res.body().data())) {
-				result = buffers_to_string(res.body().data());
+				result = buffers_to_string(res.body().data()); // Извлекаем текстовый контент
 			}
 			else {
 				std::cout << "This is not a text link, bailing out..." << std::endl;
@@ -99,7 +96,7 @@ std::string getHtmlContent(const Link& link) {
 				throw beast::system_error{ec};
 			}
 		}
-		else {
+		else { // HTTP-соединение
 			tcp::resolver resolver(ioc);
 			beast::tcp_stream stream(ioc);
 
@@ -117,7 +114,6 @@ std::string getHtmlContent(const Link& link) {
 			http::response<http::dynamic_body> res;
 			http::read(stream, buffer, res);
 
-			// Проверяем статус ответа
 			if (res.result() != http::status::ok) {
 				std::cout << "Error: HTTP status " << res.result_int() << " for URL " << host << query << std::endl;
 				return "";

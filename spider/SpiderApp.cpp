@@ -23,24 +23,24 @@
 #pragma execution_character_set(utf-8)
 
 
-std::mutex mtx;
-std::condition_variable cv;
-std::queue<std::function<void()>> tasks;
-bool exitThreadPool = false;
-bool tasksCompleted = false;
+std::mutex mtx;                              // Мьютекс для очереди задач
+std::condition_variable cv;                  // Условная переменная для уведомления потоков
+std::queue<std::function<void()>> tasks;     // Очередь задач для пула потоков
+bool exitThreadPool = false;                 // Флаг завершения пула потоков
+bool tasksCompleted = false;                 // Флаг завершения всех задач
 
-std::unordered_set<std::string> visitedUrls;
-std::mutex visitedUrlsMutex;
-const size_t MAX_URLS = 1500;
+std::unordered_set<std::string> visitedUrls; // Множество посещённых URL
+std::mutex visitedUrlsMutex;                 // Мьютекс для доступа к visitedUrls
+const size_t MAX_URLS = 10000;               // Максимальное количество обрабатываемых URL
 
-// Функция сохранения документов и частот с помощью буфера
+// Функция сохранения данных документа в буфер
 void saveDocumentAndFrequency(const std::string& url, const std::string& clean, const std::map<std::string, int>& frequency, pqxx::connection& dbConn) {
     {
         std::lock_guard<std::mutex> lock(bufferMutex);
         buffer.push_back({ url, clean, frequency });
         if (buffer.size() < 10) return; // Ждём 10 записей
     }
-    flushBuffer(dbConn);
+    flushBuffer(dbConn); // Сбрасываем буфер в базу данных
 }
 
 void threadPoolWorker(pqxx::connection dbConn) {
@@ -62,9 +62,10 @@ void threadPoolWorker(pqxx::connection dbConn) {
             }
         }
     }
-    flushBuffer(dbConn); // Записываем остатки буфера перед завершением потока
+    flushBuffer(dbConn); // Очищаем остатки буфера перед завершением
 }
 
+// Подготовка SQL-запросов для оптимизации работы с базой
 void prepareStatements(pqxx::connection& c) {
     pqxx::work tx(c);
     tx.exec("PREPARE insert_word (text) AS INSERT INTO words (word) VALUES ($1) ON CONFLICT DO NOTHING;");
@@ -93,16 +94,14 @@ bool isImageUrl(const std::string& url) {
 }
 
 void parseLink(const Link& link, int depth, pqxx::connection& dbConn) {
-    // Формируем базовый URL
     std::string baseUrl = (link.protocol == ProtocolType::HTTPS ? "https://" : "http://") + link.hostName;
-    // Парсим начальный URL
     UrlComponents initialComponents = parseUrl(link.query, baseUrl);
     std::string fullUrl = (initialComponents.protocol == "https" ? "https://" : "http://") + initialComponents.host + initialComponents.query;
 
     {
         std::lock_guard<std::mutex> lock(visitedUrlsMutex);
         if (visitedUrls.count(fullUrl) > 0 || visitedUrls.size() >= MAX_URLS) {
-            return;
+            return; // Пропускаем уже посещённые URL или при превышении лимита
         }
         visitedUrls.insert(fullUrl);
     }
@@ -114,7 +113,7 @@ void parseLink(const Link& link, int depth, pqxx::connection& dbConn) {
             return;
         }
 
-        // Извлекаем ссылки только если depth > 0
+        // Извлекаем ссылки только если глубина позволяет
         if (depth > 0) {
             std::vector<std::string> urlStrings = extractUrls(html);
 
@@ -144,11 +143,12 @@ void parseLink(const Link& link, int depth, pqxx::connection& dbConn) {
 
         std::map<std::string, int> frequency = calculateWordFrequency(clean);
 
-        /*Логи записи в БД*/auto dbStart = std::chrono::high_resolution_clock::now();
+        // Записываем в БД и выводим логи в консоль
+        auto dbStart = std::chrono::high_resolution_clock::now();
         saveDocumentAndFrequency(fullUrl, clean, frequency, dbConn);
-        /*Логи записи в БД*/ auto dbEnd = std::chrono::high_resolution_clock::now();
-        /*Логи записи в БД*/double dbTime = std::chrono::duration_cast<std::chrono::microseconds>(dbEnd - dbStart).count() / 1000.0;
-        /*Логи записи в БД*/std::cout << "Processed URL: " << fullUrl << std::endl << "    dbSave duration: " << dbTime << " ms" << std::endl;                                           
+        auto dbEnd = std::chrono::high_resolution_clock::now();
+        double dbTime = std::chrono::duration_cast<std::chrono::microseconds>(dbEnd - dbStart).count() / 1000.0;
+        std::cout << "Processed URL: " << fullUrl << std::endl << "    dbSave duration: " << dbTime << " ms" << std::endl;                                           
     }
     catch (const std::exception& e) {
         std::cout << "Error in parseLink: " << e.what() << std::endl;
@@ -167,10 +167,11 @@ int main() {
         config = load_config("../../config.ini");
     }
     catch (const std::exception& e) {
-        std::cerr << "Failed to load config: " << e.what() << std::endl;
+        std::cerr << e.what() << std::endl;
         return 1;
     }
 
+    // Формируем строку подключения к БД
     std::string connectionString = "host=" + config.db_host + 
                                    " port=" + std::to_string(config.db_port) +
                                    " dbname=" + config.db_name + 
@@ -186,7 +187,7 @@ int main() {
     create_tables(mainDbConn);
     prepareStatements(mainDbConn);
 
-    // Парсинг стартовой ссылки
+    // Парсим начальный URL из конфигурации
     UrlComponents startComponents = parseUrl(config.start_url, "");
     Link startLink{
         (startComponents.protocol == "https" ? ProtocolType::HTTPS : ProtocolType::HTTP),
@@ -199,6 +200,7 @@ int main() {
         std::vector<std::thread> threadPool;
         std::vector<pqxx::connection> threadConnections;
 
+        // Запускаем пул потоков
         for (int i = 0; i < numThreads; ++i) {
           threadConnections.emplace_back(connectionString);
             if (!threadConnections.back().is_open()) {
@@ -229,11 +231,12 @@ int main() {
             cv.notify_all();
         }
 
+        // Завершаем потоки
         for (auto& t : threadPool) {
             t.join();
         }
+        flushBuffer(mainDbConn); // Записываем остатки буфера
 
-        flushBuffer(mainDbConn);
         std::cout << "Total URLs processed: " << visitedUrls.size() << std::endl;
     }
     catch (const std::exception& e) {
